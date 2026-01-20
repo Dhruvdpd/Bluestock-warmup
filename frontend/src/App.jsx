@@ -4,8 +4,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Box, CircularProgress } from '@mui/material';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import CompanySetupPage from './pages/CompanySetupPage';
+import Dashboard from './pages/DashboardPage';
+import CompanyRegistration from './pages/CompanyRegistration';
+import Settings from './pages/Settings';
 import { setCredentials } from './store/slices/authSlice';
 
 // Protected Route Component
@@ -46,7 +47,6 @@ const LoadingScreen = () => (
 
 function App() {
   const dispatch = useDispatch();
-  const { token } = useSelector((state) => state.auth);
 
   // Check for existing token on mount
   useEffect(() => {
@@ -96,7 +96,7 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <Dashboard />
             </ProtectedRoute>
           }
         />
@@ -104,7 +104,15 @@ function App() {
           path="/company-setup"
           element={
             <ProtectedRoute>
-              <CompanySetupPage />
+              <CompanyRegistration />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           }
         />
