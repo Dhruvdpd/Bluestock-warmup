@@ -11,12 +11,13 @@ import App from './App';
 import { store } from './store/store';
 import theme from './styles/theme';
 
+// Create a client for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
-      staleTime: 5 * 60 * 1000,
+      staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
 });
@@ -39,6 +40,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             draggable
             pauseOnHover
             theme="light"
+            limit={3}
           />
         </ThemeProvider>
       </QueryClientProvider>

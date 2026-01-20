@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
-import { useForm, Controller } from 'react-hook-form';
+import { useDispatch, useSelector } from 'react-redux';
+import { useForm } from 'react-hook-form';
 import {
   Box,
   Container,
@@ -15,54 +15,123 @@ import {
   Grid,
   CircularProgress,
   IconButton,
+  AppBar,
+  Toolbar,
+  MenuItem,
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  ArrowBack as ArrowBackIcon,
+} from '@mui/icons-material';
 import { toast } from 'react-toastify';
-import { useMutation } from '@tanstack/react-query';
-
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { companyApi } from '../api/companyApi';
 import { setCompany } from '../store/slices/companySlice';
 
-const steps = ['Company Info', 'Profile Info', 'Social Links'];
+const steps = ['Basic Information', 'Company Details', 'Social Links'];
+
+const industries = [
+  'Technology',
+  'Finance',
+  'Healthcare',
+  'Education',
+  'Manufacturing',
+  'Retail',
+  'Real Estate',
+  'Consulting',
+  'Marketing',
+  'Other',
+];
 
 const CompanySetupPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [activeStep, setActiveStep] = useState(0);
   const [socialLinks, setSocialLinks] = useState([{ platform: '', url: '' }]);
+  const [isEdit, setIsEdit] = useState(false);
 
   const {
     register,
     handleSubmit,
-    control,
     formState: { errors },
     trigger,
     getValues,
+    setValue,
   } = useForm();
 
-  const companyMutation = useMutation({
-    mutationFn: (data) => companyApi.register(data),
+  // Check if editing existing company
+  const { data: companyData } = useQuery({
+    queryKey: ['company-profile'],
+    queryFn: companyApi.getCompany,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (companyData?.data?.company) {
+      const company = companyData.data.company;
+      setIsEdit(true);
+
+      // Populate form with existing data
+      Object.keys(company).forEach((key) => {
+        if (company[key] !== null && key !== 'social_links') {
+          setValue(key, company[key]);
+        }
+      });
+
+      // Populate social links
+      if (company.social_links && Object.keys(company.social_links).length > 0) {
+        const links = Object.entries(company.social_links).map(([platform, url]) => ({
+          platform,
+          url,
+        }));
+        setSocialLinks(links);
+      }
+    }
+  }, [companyData, setValue]);
+
+  const createMutation = useMutation({
+    mutationFn: (data) => companyApi.createCompany(data),
     onSuccess: (response) => {
       dispatch(setCompany(response.data.company));
-      toast.success('Company registered successfully!');
+      toast.success('Company profile created successfully!');
       navigate('/dashboard');
     },
     onError: (error) => {
-      toast.error(error.message || 'Failed to register company');
+      toast.error(error.response?.data?.message || 'Failed to create company profile');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data) => companyApi.updateCompany(data),
+    onSuccess: (response) => {
+      dispatch(setCompany(response.data.company));
+      toast.success('Company profile updated successfully!');
+      navigate('/dashboard');
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to update company profile');
     },
   });
 
   const handleNext = async () => {
     let fieldsToValidate = [];
-    
+
     if (activeStep === 0) {
-      fieldsToValidate = ['company_name', 'address', 'city', 'state', 'country', 'postal_code'];
+      fieldsToValidate = [
+        'company_name',
+        'address',
+        'city',
+        'state',
+        'country',
+        'postal_code',
+      ];
     } else if (activeStep === 1) {
-      fieldsToValidate = ['website', 'industry', 'founded_date', 'description'];
+      fieldsToValidate = ['industry'];
     }
 
     const isValid = await trigger(fieldsToValidate);
-    
+
     if (isValid) {
       if (activeStep === steps.length - 1) {
         onSubmit();
@@ -81,8 +150,10 @@ const CompanySetupPage = () => {
   };
 
   const removeSocialLink = (index) => {
-    const newLinks = socialLinks.filter((_, i) => i !== index);
-    setSocialLinks(newLinks);
+    if (socialLinks.length > 1) {
+      const newLinks = socialLinks.filter((_, i) => i !== index);
+      setSocialLinks(newLinks);
+    }
   };
 
   const updateSocialLink = (index, field, value) => {
@@ -93,7 +164,8 @@ const CompanySetupPage = () => {
 
   const onSubmit = () => {
     const formData = getValues();
-    
+
+    // Convert social links array to object
     const socialLinksObj = {};
     socialLinks.forEach((link) => {
       if (link.platform && link.url) {
@@ -102,12 +174,27 @@ const CompanySetupPage = () => {
     });
 
     const companyData = {
-      ...formData,
-      social_links: socialLinksObj,
+      company_name: formData.company_name,
+      address: formData.address,
+      city: formData.city,
+      state: formData.state,
+      country: formData.country,
+      postal_code: formData.postal_code,
+      website: formData.website || null,
+      industry: formData.industry,
+      founded_date: formData.founded_date || null,
+      description: formData.description || null,
+      social_links: Object.keys(socialLinksObj).length > 0 ? socialLinksObj : null,
     };
 
-    companyMutation.mutate(companyData);
+    if (isEdit) {
+      updateMutation.mutate(companyData);
+    } else {
+      createMutation.mutate(companyData);
+    }
   };
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
 
   const renderStepContent = (step) => {
     switch (step) {
@@ -152,7 +239,7 @@ const CompanySetupPage = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="State"
+                label="State/Province"
                 {...register('state', {
                   required: 'State is required',
                 })}
@@ -193,10 +280,11 @@ const CompanySetupPage = () => {
                 fullWidth
                 label="Website"
                 type="url"
+                placeholder="https://example.com"
                 {...register('website', {
                   pattern: {
                     value: /^https?:\/\/.+/,
-                    message: 'Please enter a valid URL',
+                    message: 'Please enter a valid URL starting with http:// or https://',
                   },
                 })}
                 error={!!errors.website}
@@ -206,9 +294,21 @@ const CompanySetupPage = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
+                select
                 label="Industry"
-                {...register('industry')}
-              />
+                defaultValue=""
+                {...register('industry', {
+                  required: 'Industry is required',
+                })}
+                error={!!errors.industry}
+                helperText={errors.industry?.message}
+              >
+                {industries.map((industry) => (
+                  <MenuItem key={industry} value={industry}>
+                    {industry}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -225,6 +325,7 @@ const CompanySetupPage = () => {
                 label="Company Description"
                 multiline
                 rows={4}
+                placeholder="Tell us about your company..."
                 {...register('description')}
               />
             </Grid>
@@ -235,7 +336,10 @@ const CompanySetupPage = () => {
         return (
           <Box>
             <Typography variant="h6" gutterBottom>
-              Social Media Links
+              Social Media Links (Optional)
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Add links to your company's social media profiles
             </Typography>
             {socialLinks.map((link, index) => (
               <Grid container spacing={2} key={index} sx={{ mb: 2 }}>
@@ -245,7 +349,7 @@ const CompanySetupPage = () => {
                     label="Platform"
                     value={link.platform}
                     onChange={(e) => updateSocialLink(index, 'platform', e.target.value)}
-                    placeholder="e.g., LinkedIn, Twitter"
+                    placeholder="e.g., LinkedIn, Twitter, Facebook"
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -280,54 +384,56 @@ const CompanySetupPage = () => {
         );
 
       default:
-        return 'Unknown step';
+        return null;
     }
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 6 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, mb: 4 }}>
-          Company Setup
-        </Typography>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <AppBar position="static">
+        <Toolbar>
+          <IconButton edge="start" color="inherit" onClick={() => navigate('/dashboard')}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h6" sx={{ ml: 2 }}>
+            {isEdit ? 'Edit Company Profile' : 'Company Setup'}
+          </Typography>
+        </Toolbar>
+      </AppBar>
 
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+      <Container maxWidth="md" sx={{ py: 6 }}>
+        <Paper elevation={3} sx={{ p: 4 }}>
+          <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, mb: 4 }}>
+            {isEdit ? 'Update Your Company Profile' : 'Create Your Company Profile'}
+          </Typography>
 
-        <Box sx={{ minHeight: 400 }}>
-          {renderStepContent(activeStep)}
-        </Box>
+          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-          <Button
-            disabled={activeStep === 0 || companyMutation.isPending}
-            onClick={handleBack}
-          >
-            Previous
-          </Button>
-          <Box>
-            <Button
-              variant="contained"
-              onClick={handleNext}
-              disabled={companyMutation.isPending}
-            >
-              {companyMutation.isPending ? (
+          <Box sx={{ minHeight: 400 }}>{renderStepContent(activeStep)}</Box>
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+            <Button disabled={activeStep === 0 || isPending} onClick={handleBack}>
+              Back
+            </Button>
+            <Button variant="contained" onClick={handleNext} disabled={isPending}>
+              {isPending ? (
                 <CircularProgress size={24} color="inherit" />
               ) : activeStep === steps.length - 1 ? (
-                'Save Profile'
+                isEdit ? 'Update Profile' : 'Save Profile'
               ) : (
                 'Next'
               )}
             </Button>
           </Box>
-        </Box>
-      </Paper>
-    </Container>
+        </Paper>
+      </Container>
+    </Box>
   );
 };
 

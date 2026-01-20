@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { useDispatch } from 'react-redux';
+import { useForm } from 'react-hook-form';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import {
   Box,
   TextField,
@@ -9,84 +10,75 @@ import {
   Typography,
   Paper,
   Container,
-  FormControl,
-  FormLabel,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
   InputAdornment,
   IconButton,
   CircularProgress,
-  FormHelperText,
   Alert,
   Link as MuiLink,
 } from '@mui/material';
-import { Visibility, VisibilityOff, PersonAdd as PersonAddIcon } from '@mui/icons-material';
-import PhoneInput from 'react-phone-input-2';
+import { Visibility, VisibilityOff, Login as LoginIcon } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { auth } from '../config/firebase';
 import { authApi } from '../api/authApi';
+import { setCredentials } from '../store/slices/authSlice';
 
-const RegisterPage = () => {
+const LoginPage = () => {
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
+  const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   const {
     register,
     handleSubmit,
-    control,
-    watch,
     formState: { errors },
-  } = useForm({
-    defaultValues: {
-      gender: 'm',
-      mobile_no: '',
-    },
-  });
-
-  const password = watch('password');
+  } = useForm();
 
   const onSubmit = async (data) => {
     setLoading(true);
     setError('');
 
     try {
-      // Create user with Firebase
-      const userCredential = await createUserWithEmailAndPassword(
+      // Sign in with Firebase
+      const userCredential = await signInWithEmailAndPassword(
         auth,
         data.email,
         data.password
       );
 
-      // Send email verification
-      await sendEmailVerification(userCredential.user);
+      // Get Firebase ID token
+      const idToken = await userCredential.user.getIdToken();
 
-      // Register with backend
-      const response = await authApi.register({
+      // Login with backend
+      const response = await authApi.login({
         email: data.email,
         password: data.password,
-        full_name: data.full_name,
-        gender: data.gender,
-        mobile_no: data.mobile_no.startsWith('+') ? data.mobile_no : `+${data.mobile_no}`,
-        signup_type: 'e',
+        firebaseIdToken: idToken,
       });
 
-      toast.success('Registration successful! Please check your email for verification.');
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
-    } catch (error) {
-      console.error('Registration error:', error);
-      let errorMessage = 'Registration failed. Please try again.';
+      // Store credentials in Redux and localStorage
+      dispatch(
+        setCredentials({
+          user: response.data.user,
+          token: response.data.token,
+        })
+      );
 
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email is already registered. Please login instead.';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak. Please use a stronger password.';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address.';
+      toast.success('Login successful!');
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Login error:', error);
+      let errorMessage = 'Login failed. Please try again.';
+
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'User not found. Please register first.';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Invalid email or password.';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid credentials. Please check your email and password.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       }
@@ -105,7 +97,6 @@ const RegisterPage = () => {
         display: 'flex',
         alignItems: 'center',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        py: 4,
       }}
     >
       <Container maxWidth="lg">
@@ -131,16 +122,16 @@ const RegisterPage = () => {
               color: 'white',
             }}
           >
-            <PersonAddIcon sx={{ fontSize: 100, mb: 3 }} />
+            <LoginIcon sx={{ fontSize: 100, mb: 3 }} />
             <Typography variant="h3" fontWeight="bold" gutterBottom align="center">
-              Join Us Today
+              Welcome Back
             </Typography>
             <Typography variant="h6" align="center" sx={{ opacity: 0.9 }}>
-              Create your company account and get started
+              Sign in to access your company dashboard
             </Typography>
           </Box>
 
-          {/* Right side - Registration Form */}
+          {/* Right side - Login Form */}
           <Paper
             elevation={0}
             sx={{
@@ -149,13 +140,14 @@ const RegisterPage = () => {
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
+              minHeight: { xs: 'auto', md: '600px' },
             }}
           >
             <Typography variant="h4" fontWeight="bold" gutterBottom>
-              Register as a Company
+              Login to Your Account
             </Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>
-              Fill in your details to create an account
+            <Typography color="text.secondary" sx={{ mb: 4 }}>
+              Enter your credentials to continue
             </Typography>
 
             {error && (
@@ -165,22 +157,6 @@ const RegisterPage = () => {
             )}
 
             <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-              <TextField
-                fullWidth
-                label="Full Name"
-                margin="normal"
-                autoComplete="name"
-                {...register('full_name', {
-                  required: 'Full name is required',
-                  minLength: {
-                    value: 2,
-                    message: 'Name must be at least 2 characters',
-                  },
-                })}
-                error={!!errors.full_name}
-                helperText={errors.full_name?.message}
-              />
-
               <TextField
                 fullWidth
                 label="Email Address"
@@ -198,66 +174,17 @@ const RegisterPage = () => {
                 helperText={errors.email?.message}
               />
 
-              <FormControl margin="normal" fullWidth>
-                <FormLabel>Gender</FormLabel>
-                <Controller
-                  name="gender"
-                  control={control}
-                  rules={{ required: 'Gender is required' }}
-                  render={({ field }) => (
-                    <RadioGroup row {...field}>
-                      <FormControlLabel value="m" control={<Radio />} label="Male" />
-                      <FormControlLabel value="f" control={<Radio />} label="Female" />
-                      <FormControlLabel value="o" control={<Radio />} label="Other" />
-                    </RadioGroup>
-                  )}
-                />
-                {errors.gender && (
-                  <FormHelperText error>{errors.gender.message}</FormHelperText>
-                )}
-              </FormControl>
-
-              <Box sx={{ mt: 2, mb: 2 }}>
-                <FormLabel>Mobile Number</FormLabel>
-                <Controller
-                  name="mobile_no"
-                  control={control}
-                  rules={{ required: 'Mobile number is required' }}
-                  render={({ field }) => (
-                    <PhoneInput
-                      {...field}
-                      country="in"
-                      inputStyle={{
-                        width: '100%',
-                        height: '56px',
-                        fontSize: '16px',
-                      }}
-                      containerStyle={{
-                        marginTop: '8px',
-                      }}
-                    />
-                  )}
-                />
-                {errors.mobile_no && (
-                  <FormHelperText error>{errors.mobile_no.message}</FormHelperText>
-                )}
-              </Box>
-
               <TextField
                 fullWidth
                 label="Password"
                 type={showPassword ? 'text' : 'password'}
                 margin="normal"
-                autoComplete="new-password"
+                autoComplete="current-password"
                 {...register('password', {
                   required: 'Password is required',
                   minLength: {
                     value: 8,
                     message: 'Password must be at least 8 characters',
-                  },
-                  pattern: {
-                    value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-                    message: 'Password must contain uppercase, lowercase, and number',
                   },
                 })}
                 error={!!errors.password}
@@ -274,21 +201,6 @@ const RegisterPage = () => {
                     </InputAdornment>
                   ),
                 }}
-              />
-
-              <TextField
-                fullWidth
-                label="Confirm Password"
-                type={showPassword ? 'text' : 'password'}
-                margin="normal"
-                autoComplete="new-password"
-                {...register('confirm_password', {
-                  required: 'Please confirm your password',
-                  validate: (value) =>
-                    value === password || 'Passwords do not match',
-                })}
-                error={!!errors.confirm_password}
-                helperText={errors.confirm_password?.message}
               />
 
               <Button
@@ -308,16 +220,16 @@ const RegisterPage = () => {
                 {loading ? (
                   <CircularProgress size={24} color="inherit" />
                 ) : (
-                  'Create Account'
+                  'Login to Dashboard'
                 )}
               </Button>
 
-              <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Box sx={{ textAlign: 'center', mt: 3 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Already have an account?{' '}
+                  Don't have an account?{' '}
                   <MuiLink
                     component={Link}
-                    to="/login"
+                    to="/register"
                     sx={{
                       color: 'primary.main',
                       textDecoration: 'none',
@@ -325,7 +237,7 @@ const RegisterPage = () => {
                       '&:hover': { textDecoration: 'underline' },
                     }}
                   >
-                    Login here
+                    Register here
                   </MuiLink>
                 </Typography>
               </Box>
@@ -337,4 +249,4 @@ const RegisterPage = () => {
   );
 };
 
-export default RegisterPage;
+export default LoginPage;

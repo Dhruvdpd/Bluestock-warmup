@@ -18,22 +18,36 @@ const authSlice = createSlice({
       state.token = token;
       state.isAuthenticated = true;
       state.error = null;
+      
+      // Persist to localStorage
       if (token) {
         localStorage.setItem('token', token);
+      }
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
       }
     },
     setUser: (state, action) => {
       state.user = action.payload;
+      if (action.payload) {
+        localStorage.setItem('user', JSON.stringify(action.payload));
+      }
     },
     updateUser: (state, action) => {
       state.user = { ...state.user, ...action.payload };
+      if (state.user) {
+        localStorage.setItem('user', JSON.stringify(state.user));
+      }
     },
     logout: (state) => {
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;
       state.error = null;
+      
+      // Clear localStorage
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
     },
     setLoading: (state, action) => {
       state.loading = action.payload;
