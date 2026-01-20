@@ -8,29 +8,24 @@ import {
   Box,
   Container,
   Paper,
-  Stepper,
-  Step,
-  StepLabel,
   Button,
   TextField,
   Typography,
   Grid,
   CircularProgress,
-  AppBar,
-  Toolbar,
-  IconButton,
   MenuItem,
+  Avatar,
 } from '@mui/material';
 import {
   ChevronLeft,
   ChevronRight,
   Upload,
   Check,
-  ArrowBack,
 } from '@mui/icons-material';
 import { useDispatch } from 'react-redux';
 import { setCompany } from '../store/slices/companySlice';
 import { fileToBase64 } from '../config/cloudinary';
+import SidebarLayout from '../components/SidebarLayout';
 
 const CompanyRegistration = () => {
   const navigate = useNavigate();
@@ -192,8 +187,8 @@ const CompanyRegistration = () => {
         fieldsToValidate = [];
         break;
       case 4:
-        fieldsToValidate = [];
-        break;
+        // Don't auto-submit, just stay on step 4
+        return;
     }
 
     const isValid = await trigger(fieldsToValidate);
@@ -238,22 +233,11 @@ const CompanyRegistration = () => {
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="static">
-        <Toolbar>
-          <IconButton edge="start" color="inherit" onClick={() => navigate('/dashboard')}>
-            <ArrowBack />
-          </IconButton>
-          <Typography variant="h6" sx={{ ml: 2 }}>
-            {isEdit ? 'Edit Company Profile' : 'Company Registration'}
-          </Typography>
-        </Toolbar>
-      </AppBar>
-
+    <SidebarLayout>
       <Container maxWidth="md" sx={{ py: 6 }}>
-        <Paper elevation={3} sx={{ p: 4 }}>
+        <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
           <Typography variant="h4" fontWeight="bold" gutterBottom>
-            {isEdit ? 'Update Company Profile' : 'Company Registration'}
+            {isEdit ? 'Edit Company Profile' : 'Company Registration'}
           </Typography>
           <Typography color="text.secondary" sx={{ mb: 4 }}>
             Complete your company profile in a few simple steps
@@ -486,21 +470,20 @@ const CompanyRegistration = () => {
                       />
                       <label htmlFor="logo-upload" style={{ cursor: 'pointer' }}>
                         {logoPreview ? (
-                          <img
+                          <Avatar
                             src={logoPreview}
                             alt="Logo preview"
-                            style={{
+                            sx={{
                               width: 120,
                               height: 120,
-                              objectFit: 'cover',
-                              borderRadius: 8,
+                              margin: '0 auto',
                             }}
                           />
                         ) : (
                           <>
                             <Upload sx={{ fontSize: 48, color: 'text.secondary' }} />
                             <Typography color="text.secondary" sx={{ mt: 1 }}>
-                              Click to upload logo
+                              Click to upload logo (Max 5MB)
                             </Typography>
                           </>
                         )}
@@ -547,7 +530,7 @@ const CompanyRegistration = () => {
                           <>
                             <Upload sx={{ fontSize: 48, color: 'text.secondary' }} />
                             <Typography color="text.secondary" sx={{ mt: 1 }}>
-                              Click to upload banner
+                              Click to upload banner (Max 10MB)
                             </Typography>
                           </>
                         )}
@@ -597,7 +580,7 @@ const CompanyRegistration = () => {
                   {isPending ? (
                     <CircularProgress size={24} color="inherit" />
                   ) : (
-                    'Complete Registration'
+                    `${isEdit ? 'Update' : 'Complete'} Registration`
                   )}
                 </Button>
               )}
@@ -605,7 +588,7 @@ const CompanyRegistration = () => {
           </form>
         </Paper>
       </Container>
-    </Box>
+    </SidebarLayout>
   );
 };
 

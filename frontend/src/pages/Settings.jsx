@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import PhoneInput from 'react-phone-input-2';
 import {
   Box,
@@ -13,65 +12,41 @@ import {
   Typography,
   Grid,
   IconButton,
-  AppBar,
-  Toolbar,
   CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Drawer,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Avatar,
   Divider,
   FormLabel,
   FormHelperText,
+  Chip,
 } from '@mui/material';
 import {
   PhotoCamera,
   Add as Plus,
   Delete as Trash2,
-  ArrowBack,
   Person,
   Business,
   Link as LinkIcon,
   Lock,
-  ExitToApp as LogoutIcon,
 } from '@mui/icons-material';
 import { useSelector, useDispatch } from 'react-redux';
-import { setUser, logout } from '../store/slices/authSlice';
+import { setUser } from '../store/slices/authSlice';
 import { setCompany } from '../store/slices/companySlice';
 import { userApi } from '../api/userApi';
 import { companyApi } from '../api/companyApi';
 import { fileToBase64 } from '../config/cloudinary';
-
-const DRAWER_WIDTH = 280;
+import SidebarLayout from '../components/SidebarLayout';
 
 const Settings = () => {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('personal');
-  const { user } = useSelector((state) => state.auth);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
-  const { data: companyData } = useQuery({
-    queryKey: ['company-profile'],
-    queryFn: companyApi.getCompany,
-    retry: false,
-  });
-
-  const company = companyData?.data?.company;
-
-  const handleLogout = () => {
-    dispatch(logout());
-    toast.info('Logged out successfully');
-    navigate('/login');
-  };
 
   const menuItems = [
     { id: 'personal', label: 'Personal', icon: <PhotoCamera /> },
@@ -81,129 +56,126 @@ const Settings = () => {
   ];
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* Sidebar */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: DRAWER_WIDTH,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
-            boxSizing: 'border-box',
-            borderRight: '1px solid',
-            borderColor: 'divider',
-          },
-        }}
-      >
-        <Box sx={{ p: 3 }}>
-          <Typography variant="h5" fontWeight="bold" color="primary">
-            Settings
-          </Typography>
-        </Box>
-        <Divider />
-        <List sx={{ px: 2, py: 2 }}>
-          {menuItems.map((item) => (
-            <ListItem key={item.id} disablePadding sx={{ mb: 1 }}>
-              <ListItemButton
-                selected={activeTab === item.id}
-                onClick={() => setActiveTab(item.id)}
-                sx={{
-                  borderRadius: 2,
-                  '&.Mui-selected': {
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    '&:hover': {
-                      bgcolor: 'primary.dark',
-                    },
-                    '& .MuiListItemIcon-root': {
-                      color: 'white',
-                    },
-                  },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 40, color: 'text.secondary' }}>
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText primary={item.label} />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-        <Box sx={{ flexGrow: 1 }} />
-        <Divider />
-        <Box sx={{ p: 2 }}>
-          <Button
-            fullWidth
-            variant="outlined"
-            color="error"
-            startIcon={<LogoutIcon />}
-            onClick={handleLogout}
-          >
-            Logout
-          </Button>
-        </Box>
-      </Drawer>
-
-      {/* Main Content */}
-      <Box component="main" sx={{ flexGrow: 1, p: 4 }}>
-        <Container maxWidth="lg">
-          <Box sx={{ mb: 4 }}>
-            <IconButton onClick={() => navigate('/dashboard')} sx={{ mb: 2 }}>
-              <ArrowBack />
-            </IconButton>
-            <Typography variant="h4" fontWeight="bold" gutterBottom>
-              {menuItems.find((item) => item.id === activeTab)?.label}
-            </Typography>
-            <Typography color="text.secondary">
-              Manage your account settings and preferences
-            </Typography>
-          </Box>
-
-          <Paper sx={{ p: 4 }}>
-            {activeTab === 'personal' && <PersonalTab company={company} />}
-            {activeTab === 'profile' && <ProfileInfoTab />}
-            {activeTab === 'social' && <SocialLinksTab company={company} />}
-            {activeTab === 'account' && (
-              <AccountTab setDeleteDialogOpen={setDeleteDialogOpen} />
-            )}
-          </Paper>
-        </Container>
-      </Box>
-
-      {/* Delete Account Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete Account?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete your account? This action cannot be undone and
-            all your data will be permanently deleted.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={() => {
-              toast.info('Account deletion requested');
-              setDeleteDialogOpen(false);
+    <SidebarLayout>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', gap: 4 }}>
+          {/* Settings Sidebar Menu */}
+          <Paper
+            elevation={0}
+            sx={{
+              width: 280,
+              height: 'fit-content',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 3,
+              overflow: 'hidden',
             }}
-            color="error"
-            variant="contained"
           >
-            Delete Account
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+            <Box sx={{ p: 3, bgcolor: 'primary.main', color: 'white' }}>
+              <Typography variant="h6" fontWeight="bold">
+                Settings
+              </Typography>
+            </Box>
+            <List sx={{ p: 2 }}>
+              {menuItems.map((item) => (
+                <ListItem key={item.id} disablePadding sx={{ mb: 1 }}>
+                  <ListItemButton
+                    selected={activeTab === item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    sx={{
+                      borderRadius: 2,
+                      '&.Mui-selected': {
+                        bgcolor: 'primary.light',
+                        color: 'primary.main',
+                        '&:hover': {
+                          bgcolor: 'primary.light',
+                        },
+                        '& .MuiListItemIcon-root': {
+                          color: 'primary.main',
+                        },
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40, color: 'text.secondary' }}>
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText primary={item.label} />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </Paper>
+
+          {/* Settings Content */}
+          <Box sx={{ flex: 1 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 4,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 3,
+              }}
+            >
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
+                {menuItems.find((item) => item.id === activeTab)?.label}
+              </Typography>
+              <Typography color="text.secondary" sx={{ mb: 4 }}>
+                Manage your settings and preferences
+              </Typography>
+
+              {activeTab === 'personal' && <PersonalTab />}
+              {activeTab === 'profile' && <ProfileInfoTab />}
+              {activeTab === 'social' && <SocialLinksTab />}
+              {activeTab === 'account' && (
+                <AccountTab setDeleteDialogOpen={setDeleteDialogOpen} />
+              )}
+            </Paper>
+          </Box>
+        </Box>
+
+        {/* Delete Account Dialog */}
+        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+          <DialogTitle>Delete Account?</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to delete your account? This action cannot be undone and
+              all your data will be permanently deleted.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                toast.info('Account deletion requested');
+                setDeleteDialogOpen(false);
+              }}
+              color="error"
+              variant="contained"
+            >
+              Delete Account
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </SidebarLayout>
   );
 };
 
 // Personal Tab Component - Banner and Logo Upload
-const PersonalTab = ({ company }) => {
+const PersonalTab = () => {
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
-  const [bannerPreview, setBannerPreview] = useState(company?.banner_url || null);
-  const [logoPreview, setLogoPreview] = useState(company?.logo_url || null);
+  const [bannerPreview, setBannerPreview] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+
+  const { data: companyData } = useQuery({
+    queryKey: ['company-profile'],
+    queryFn: companyApi.getCompany,
+    retry: false,
+  });
+
+  const company = companyData?.data?.company;
 
   useEffect(() => {
     if (company) {
@@ -284,7 +256,7 @@ const PersonalTab = ({ company }) => {
         <Typography color="text.secondary" sx={{ mb: 3 }}>
           Please create a company profile first to manage images
         </Typography>
-        <Button variant="contained" onClick={() => window.location.href = '/company-setup'}>
+        <Button variant="contained" onClick={() => (window.location.href = '/company-setup')}>
           Create Company Profile
         </Button>
       </Box>
@@ -453,7 +425,12 @@ const ProfileInfoTab = () => {
   const { user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm({
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm({
     defaultValues: {
       full_name: user?.full_name || '',
       email: user?.email || '',
@@ -565,10 +542,18 @@ const ProfileInfoTab = () => {
 };
 
 // Social Links Tab Component
-const SocialLinksTab = ({ company }) => {
+const SocialLinksTab = () => {
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
   const [links, setLinks] = useState([{ platform: 'LinkedIn', url: '' }]);
+
+  const { data: companyData } = useQuery({
+    queryKey: ['company-profile'],
+    queryFn: companyApi.getCompany,
+    retry: false,
+  });
+
+  const company = companyData?.data?.company;
 
   useEffect(() => {
     if (company?.social_links && Object.keys(company.social_links).length > 0) {
@@ -631,7 +616,7 @@ const SocialLinksTab = ({ company }) => {
         <Typography color="text.secondary" sx={{ mb: 3 }}>
           Please create a company profile first to add social links
         </Typography>
-        <Button variant="contained" onClick={() => window.location.href = '/company-setup'}>
+        <Button variant="contained" onClick={() => (window.location.href = '/company-setup')}>
           Create Company Profile
         </Button>
       </Box>
@@ -725,7 +710,13 @@ const SocialLinksTab = ({ company }) => {
 // Account Tab Component
 const AccountTab = ({ setDeleteDialogOpen }) => {
   const { user } = useSelector((state) => state.auth);
-  const { register, handleSubmit, watch, formState: { errors }, reset } = useForm();
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+    reset,
+  } = useForm();
   const newPassword = watch('new_password');
 
   const onSubmit = (data) => {
@@ -755,12 +746,11 @@ const AccountTab = ({ setDeleteDialogOpen }) => {
               <Typography variant="body2" color="text.secondary">
                 Email Verified
               </Typography>
-              <Typography
-                fontWeight="medium"
-                color={user?.is_email_verified ? 'success.main' : 'error.main'}
-              >
-                {user?.is_email_verified ? 'Yes' : 'No'}
-              </Typography>
+              <Chip
+                label={user?.is_email_verified ? 'Verified' : 'Not Verified'}
+                color={user?.is_email_verified ? 'success' : 'error'}
+                size="small"
+              />
             </Paper>
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -776,12 +766,11 @@ const AccountTab = ({ setDeleteDialogOpen }) => {
               <Typography variant="body2" color="text.secondary">
                 Mobile Verified
               </Typography>
-              <Typography
-                fontWeight="medium"
-                color={user?.is_mobile_verified ? 'success.main' : 'error.main'}
-              >
-                {user?.is_mobile_verified ? 'Yes' : 'No'}
-              </Typography>
+              <Chip
+                label={user?.is_mobile_verified ? 'Verified' : 'Not Verified'}
+                color={user?.is_mobile_verified ? 'success' : 'error'}
+                size="small"
+              />
             </Paper>
           </Grid>
         </Grid>
@@ -829,8 +818,7 @@ const AccountTab = ({ setDeleteDialogOpen }) => {
                 label="Confirm New Password"
                 {...register('confirm_password', {
                   required: 'Please confirm your password',
-                  validate: (value) =>
-                    value === newPassword || 'Passwords do not match',
+                  validate: (value) => value === newPassword || 'Passwords do not match',
                 })}
                 error={!!errors.confirm_password}
                 helperText={errors.confirm_password?.message}
